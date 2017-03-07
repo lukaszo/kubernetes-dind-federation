@@ -141,7 +141,7 @@ function dind::init_auth {
   dind::step "Creating credentials:" "admin:${BASIC_PASSWORD}, kubelet token"
 
   dind::step "Create TLS certs & keys:"
-  docker run -i  --entrypoint /bin/bash -v "${auth_dir}:/certs" -w /certs cfssl/cfssl:latest -ec "$(cat <<EOF
+  docker run --rm -i  --entrypoint /bin/bash -v "${auth_dir}:/certs" -w /certs cfssl/cfssl:latest -ec "$(cat <<EOF
     cd /certs
     echo '{"CN":"CA","key":{"algo":"rsa","size":2048}}' | cfssl gencert -initca - | cfssljson -bare ca -
     echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","server auth","client auth"]}}}' > ca-config.json
@@ -196,6 +196,7 @@ function dind::kube-up {
 
 function dind::deploy-dns {
   dind::step "Deploying kube-dns"
+  "cluster/kubectl.sh" --namespace kube-system create -f "cluster/addons/dns/kubedns-sa.yaml"
   "cluster/kubectl.sh" create -f <(
     for f in kubedns-controller.yaml kubedns-svc.yaml; do
       echo "---"

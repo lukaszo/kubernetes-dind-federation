@@ -1,6 +1,6 @@
 etcd:
   hostname: etcd
-  image: gcr.io/google_containers/etcd-amd64:3.0.4
+  image: quay.io/coreos/etcd:v3.0.17
   ports: [ "4001:4001" ]
   command: >
     /usr/local/bin/etcd
@@ -29,7 +29,9 @@ node:
     --allow-privileged
     --cluster-dns=${DNS_SERVER_IP}
     --cluster-domain=${DNS_DOMAIN}
-    --config=/var/lib/kubelet/manifests
+    --pod-manifest-path=/var/lib/kubelet/manifests
+    --cgroups-per-qos=false
+    --enforce-node-allocatable=
     --v=5 2>&1 | sed 's/^/kubelet: /' 1>&2 &
     hyperkube proxy
     --hostname-override=$${HOSTNAME_OVERRIDE}
