@@ -1,12 +1,20 @@
+# used for a cluster name and docker network name
+CLUSTER_NAME=${CLUSTER_NAME:-dind}
+
 # Apiserver host name used by the kubeconfig for the kubectl
-APISERVER_ADDRESS=${APISERVER_ADDRESS:-localhost}
+APISERVER_ADDRESS=${APISERVER_ADDRESS:-172.28.0.3}
+
+# IP range
+IP_RANGE=${IP_RANGE:-172.28.0.0/16}
+
+DOCKER_NETWORK_OFFSET=0.0.1.0
 
 # Path to directory on the host to use as the root for multiple docker volumes.
 # ${DOCKER_IN_DOCKER_WORK_DIR}/log - storage of component logs (written on deploy failure)
 # ${DOCKER_IN_DOCKER_WORK_DIR}/auth - storage of SSL certs/keys/tokens
 # If using docker-machine or boot2docker, should be under /Users (which is mounted from the host into the docker vm).
 # If running in a container, $HOME should be resolved outside of the container.
-DOCKER_IN_DOCKER_WORK_DIR="${DOCKER_IN_DOCKER_WORK_DIR:-${HOME}/tmp/kubernetes-dind}"
+DOCKER_IN_DOCKER_WORK_DIR="${DOCKER_IN_DOCKER_WORK_DIR:-${HOME}/tmp/kubernetes-dind/${CLUSTER_NAME}}"
 
 # Arguments to pass to docker-engine running on the kubernetes-dind containers.
 DOCKER_DAEMON_ARGS="${DOCKER_DAEMON_ARGS:---log-level=error}"
@@ -32,3 +40,9 @@ SERVICE_CIDR="${SERVICE_CIDR:-${APISERVER_SERVICE_IP}/24}"
 
 # Number of nodes
 NUM_NODES=${NUM_NODES:-2}
+
+# Federation
+ENABLE_FEDERATION="${ENABLE_FEDERATION:-false}"
+FEDERATION_NAMESPACE="${FEDERATION_NAMESPACE:-federation}"
+KUBECONFIG=${KUBECONFIG:-~/.kube/config}
+DNS_ZONE=${DNS_ZONE:-example.com}
