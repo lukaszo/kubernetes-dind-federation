@@ -269,7 +269,8 @@ function dind::deploy-federation {
 
   # push hyperkube image
   pushd "cluster/images/hyperkube/"
-  REGISTRY=localhost:5000 make push VERSION=master ARCH=amd64
+  make build VERSION=master ARCH=amd64
+  docker push localhost:5000/hyperkube:master
   popd
 
   # run kubefed
