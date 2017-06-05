@@ -252,7 +252,7 @@ function dind::deploy-federation {
   dind::await_ready "etcd_cluster=etcd-cluster" "2000" ${FEDERATION_NAMESPACE}
   
   # install coredns
-  helm install --namespace ${FEDERATION_NAMESPACE} --name coredns --wait --timeout 600 -f values.yaml stable/coredns
+  helm install --namespace ${FEDERATION_NAMESPACE} --name coredns --wait --timeout 600 -f "${DIND_ROOT}/k8s/values.yaml" stable/coredns
 
   # install private docker registry
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
