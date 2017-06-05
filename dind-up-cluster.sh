@@ -256,11 +256,9 @@ function dind::deploy-federation {
 
   # install private docker registry
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
-  # Wait for addons to deploy
   dind::await_ready "k8s-app=kube-registry" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-svc.yml"
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-ds.yml"
-  # Wait for addons to deploy
   dind::await_ready "k8s-app=registry-proxy" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
   
   # local proxy to push images
@@ -281,14 +279,19 @@ function dind::deploy-federation {
     etcd-endpoints = http://etcd-cluster.${FEDERATION_NAMESPACE}:2379
     zones = ${DNS_ZONE}.
 EOF
-  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=localhost:5000/hyperkube:master
 
+  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=localhost:5000/hyperkube:master
+  kubefed join "${CLUSTER_NAME}" --host-cluster-context=${CLUSTER_NAME} --context=federation
 }
 
 function dind::remove-federation {
   "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE} || true
+  "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE}-system || true
+  "cluster/kubectl.sh" delete clusterrole "federation-controller-manager:federation-dind-dind" || true
+  "cluster/kubectl.sh" delete clusterrolebindings "federation-controller-manager:federation-dind-dind" || true
   helm delete etcd-operator --purge || true
   helm delete coredns --purge || true
+  pkill -f 'kubectl.*5000'
 }
 
 function dind::validate-cluster {
