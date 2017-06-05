@@ -1,5 +1,5 @@
 # used for a cluster name and docker network name
-CLUSTER_NAME=${CLUSTER_NAME:-dind}
+CLUSTER_NAME=${CLUSTER_NAME:-fdind}
 
 # Apiserver host name used by the kubeconfig for the kubectl
 APISERVER_ADDRESS=${APISERVER_ADDRESS:-172.28.0.3}
