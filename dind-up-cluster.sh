@@ -260,12 +260,12 @@ function dind::deploy-federation {
   POD=$("cluster/kubectl.sh" get pods --namespace ${FEDERATION_NAMESPACE} -l k8s-app=kube-registry \
 	  -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
 	  | grep Running | head -1 | cut -f1 -d' ')
-  "cluster/kubectl.sh" port-forward --namespace ${FEDERATION_NAMESPACE} $POD 5000:5000 &
+  "cluster/kubectl.sh" port-forward --namespace ${FEDERATION_NAMESPACE} $POD ${REGISTRY_LOCAL_PORT}:5000 &
 
   # push hyperkube image
   pushd "cluster/images/hyperkube/"
-  make build VERSION=master ARCH=amd64
-  docker push localhost:5000/hyperkube-amd64:master
+  REGISTRY=localhost:${REGISTRY_LOCAL_PORT} make build VERSION=master ARCH=amd64
+  docker push localhost:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:master
   popd
 
   # run kubefed
