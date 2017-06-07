@@ -233,26 +233,21 @@ function dind::deploy-ui {
 }
 
 function dind::deploy-federation {
+  set -x
   if [ ! -f _output/dockerized/bin/linux/amd64/hyperkube ]; then
     echo "No _output/dockerized/bin/linux/amd64/hyperkube file. Please run make quick-release first" 1>&2
     exit 1
   fi
-	set -x
-  # init helm
-  helm init
-  dind::await_ready "app=helm" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
+
+  "cluster/kubectl.sh" create namespace "${FEDERATION_NAMESPACE}"
 
   # install etcd
-  helm install stable/etcd-operator --namespace ${FEDERATION_NAMESPACE} --name etcd-operator --wait --timeout 300 
-  dind::await_ready "app=etcd-operator-etcd-opera" "2000" ${FEDERATION_NAMESPACE}
-  dind::await_tpr "cluster.etcd.coreos.com" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
-  # FIXME
-  sleep 5
-  helm upgrade etcd-operator stable/etcd-operator --wait --timeout 300 --set cluster.size=1 --set cluster.enabled=true
-  dind::await_ready "etcd_cluster=etcd-cluster" "2000" ${FEDERATION_NAMESPACE}
-  
+  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/etcd.yml"
+  dind::await_ready "k8s-app=coredns-etcd" "600" ${FEDERATION_NAMESPACE}
+
   # install coredns
-  helm install --namespace ${FEDERATION_NAMESPACE} --name coredns --wait --timeout 600 -f "${DIND_ROOT}/k8s/values.yaml" stable/coredns
+  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/coredns.yml"
+  dind::await_ready "k8s-app=coredns" "600" ${FEDERATION_NAMESPACE}
 
   # install private docker registry
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
@@ -270,7 +265,7 @@ function dind::deploy-federation {
   # push hyperkube image
   pushd "cluster/images/hyperkube/"
   make build VERSION=master ARCH=amd64
-  docker push localhost:5000/hyperkube:master
+  docker push localhost:5000/hyperkube-amd64:master
   popd
 
   # run kubefed
@@ -281,7 +276,7 @@ function dind::deploy-federation {
     zones = ${DNS_ZONE}.
 EOF
 
-  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=localhost:5000/hyperkube:master
+  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=localhost:5000/hyperkube-amd64:master
   kubefed join "${CLUSTER_NAME}" --host-cluster-context=${CLUSTER_NAME} --context=federation
 }
 
