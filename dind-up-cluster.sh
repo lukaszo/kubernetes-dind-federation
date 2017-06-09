@@ -214,6 +214,7 @@ function dind::kube-up {
 
 function dind::deploy-dns {
   dind::step "Deploying kube-dns"
+  "cluster/kubectl.sh" --namespace kube-system create -f "${DIND_ROOT}/k8s/kubedns-cm.yml"
   "cluster/kubectl.sh" --namespace kube-system create -f "cluster/addons/dns/kubedns-sa.yaml"
   "cluster/kubectl.sh" create -f <(
     for f in kubedns-controller.yaml kubedns-svc.yaml; do
@@ -264,8 +265,8 @@ function dind::deploy-federation {
 
   # push hyperkube image
   pushd "cluster/images/hyperkube/"
-  REGISTRY=localhost:${REGISTRY_LOCAL_PORT} make build VERSION=master ARCH=amd64
-  docker push localhost:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:master
+  REGISTRY=127.0.0.1:${REGISTRY_LOCAL_PORT} make build VERSION=master ARCH=amd64
+  docker push 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:master
   popd
 
   # run kubefed
@@ -276,7 +277,7 @@ function dind::deploy-federation {
     zones = ${DNS_ZONE}.
 EOF
 
-  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=localhost:5000/hyperkube-amd64:master
+  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=127.0.0.1:5000/hyperkube-amd64:master
   kubefed join "${CLUSTER_NAME}" --host-cluster-context=${CLUSTER_NAME} --context=federation
 }
 
