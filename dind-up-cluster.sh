@@ -285,9 +285,7 @@ function dind::remove-federation {
   "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE}-system || true
   "cluster/kubectl.sh" delete clusterrole "federation-controller-manager:federation-dind-dind" || true
   "cluster/kubectl.sh" delete clusterrolebindings "federation-controller-manager:federation-dind-dind" || true
-  helm delete etcd-operator --purge || true
-  helm delete coredns --purge || true
-  pkill -f 'kubectl.*5000'
+  pkill -f 'kubectl.*${REGISTRY_LOCAL_PORT}'
 }
 
 function dind::validate-cluster {
