@@ -2,7 +2,7 @@
 CLUSTER_NAME=${CLUSTER_NAME:-dind}
 
 # Apiserver host name used by the kubeconfig for the kubectl
-APISERVER_ADDRESS=${APISERVER_ADDRESS:-172.28.0.3}
+APISERVER_ADDRESS=${APISERVER_ADDRESS:-172.28.0.1}
 
 # IP range
 IP_RANGE=${IP_RANGE:-172.28.0.0/16}
