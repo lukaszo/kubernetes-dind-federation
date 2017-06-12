@@ -7,8 +7,6 @@ APISERVER_ADDRESS=${APISERVER_ADDRESS:-172.28.0.3}
 # IP range
 IP_RANGE=${IP_RANGE:-172.28.0.0/16}
 
-DOCKER_NETWORK_OFFSET=0.0.1.0
-
 # Path to directory on the host to use as the root for multiple docker volumes.
 # ${DOCKER_IN_DOCKER_WORK_DIR}/log - storage of component logs (written on deploy failure)
 # ${DOCKER_IN_DOCKER_WORK_DIR}/auth - storage of SSL certs/keys/tokens
