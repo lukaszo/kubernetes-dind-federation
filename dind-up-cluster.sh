@@ -234,7 +234,6 @@ function dind::deploy-ui {
 }
 
 function dind::deploy-federation {
-  set -x
   if [ ! -f _output/dockerized/bin/linux/amd64/hyperkube ]; then
     echo "No _output/dockerized/bin/linux/amd64/hyperkube file. Please run make quick-release first" 1>&2
     exit 1
@@ -286,7 +285,8 @@ function dind::remove-federation {
   "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE}-system || true
   "cluster/kubectl.sh" delete clusterrole "federation-controller-manager:federation-dind-dind" || true
   "cluster/kubectl.sh" delete clusterrolebindings "federation-controller-manager:federation-dind-dind" || true
-  pkill -f 'kubectl.*${REGISTRY_LOCAL_PORT}'
+  set -x
+  pkill -f "kubectl.*${REGISTRY_LOCAL_PORT}"
 }
 
 function dind::validate-cluster {
