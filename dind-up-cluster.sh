@@ -88,10 +88,18 @@ function dind::create-kubeconfig {
    echo "Wrote config for ${CLUSTER_NAME} context" 1>&2
 }
 
+# get apiserver published port
+function dind::get-apiserver-port {
+  local base_port=$1
+  local port_mapping=$(docker port ${CLUSTER_NAME}_apiserver_1 ${base_port})
+  local port=${port_mapping#0.0.0.0:}
+  echo ${port}
+}
+
 # Must ensure that the following ENV vars are set
 function dind::detect-master {
   #KUBE_MASTER_IP="${APISERVER_ADDRESS}:6443"
-  KUBE_MASTER_IP="${APISERVER_ADDRESS}:8888"
+  KUBE_MASTER_IP="${APISERVER_ADDRESS}:$(dind::get-apiserver-port 8888)"
   #KUBE_SERVER="https://${KUBE_MASTER_IP}"
   KUBE_SERVER="http://${KUBE_MASTER_IP}"
 
@@ -184,8 +192,9 @@ function dind::kube-up {
   dind::step "Starting dind cluster"
   dind::docker_compose up -d --force-recreate --scale node=${NUM_NODES}
 
-  dind::step -n "Waiting for https://${APISERVER_ADDRESS}:6443 to be healthy"
-  while ! curl -o /dev/null -s --cacert ${DOCKER_IN_DOCKER_WORK_DIR}/auth/ca.pem https://${APISERVER_ADDRESS}:6443; do
+  local apiserver_port=$(dind::get-apiserver-port 6443)
+  dind::step -n "Waiting for https://${APISERVER_ADDRESS}:${apiserver_port} to be healthy"
+  while ! curl -o /dev/null -s --cacert ${DOCKER_IN_DOCKER_WORK_DIR}/auth/ca.pem https://${APISERVER_ADDRESS}:${apiserver_port}; do
     sleep 1
     echo -n "."
   done
