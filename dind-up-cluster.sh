@@ -261,7 +261,10 @@ function dind::deploy-federation {
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
   dind::await_ready "k8s-app=kube-registry" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-svc.yml"
-  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-ds.yml"
+  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f <(eval "cat <<EOF
+$(<"${DIND_ROOT}/k8s/registry-ds.yml")
+EOF
+" 2>/dev/null)
   dind::await_ready "k8s-app=registry-proxy" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
   
   # local proxy to push images
@@ -280,7 +283,7 @@ function dind::deploy-federation {
   tmpfile=$(mktemp /tmp/coredns-provider.conf.XXXXXX)
   cat >${tmpfile} << EOF
     [Global]
-    etcd-endpoints = http://etcd-cluster.${FEDERATION_NAMESPACE}:2379
+    etcd-endpoints = http://coredns-etcd.${FEDERATION_NAMESPACE}:2379
     zones = ${DNS_ZONE}.
 EOF
 

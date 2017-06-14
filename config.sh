@@ -26,7 +26,7 @@ ENABLE_CLUSTER_UI="${ENABLE_CLUSTER_UI:-true}"
 # Optional: Deploy cluster DNS.
 ENABLE_CLUSTER_DNS="${ENABLE_CLUSTER_DNS:-true}"
 DNS_SERVER_IP="${DNS_SERVER_IP:-10.0.0.10}"
-DNS_DOMAIN="${DNS_DOMAIN:-cluster.local}"
+DNS_DOMAIN="${DNS_DOMAIN:-${CLUSTER_NAME}.local}"
 DNS_REPLICAS="${DNS_REPLICAS:-1}"
 
 # Timeout (in seconds) to wait for each addon to come up

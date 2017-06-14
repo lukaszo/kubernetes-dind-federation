@@ -17,7 +17,7 @@ spec:
             memory: 50Mi
         env:
         - name: REGISTRY_HOST
-          value: kube-registry.federation.svc.cluster.local
+          value: kube-registry.federation.svc.$CLUSTER_NAME.local
         - name: REGISTRY_PORT
           value: "5000"
         - name: FORWARD_PORT
