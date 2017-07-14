@@ -42,6 +42,7 @@ function dind::docker_compose {
     "SERVICE_CIDR"
     "DNS_SERVER_IP"
     "DNS_DOMAIN"
+    "CLUSTER_NAME"
   )
 
   (
@@ -108,7 +109,7 @@ function dind::detect-master {
 
 # Get minion IP addresses and store in KUBE_NODE_IP_ADDRESSES[]
 function dind::detect-nodes {
-  local docker_ids=$(docker ps --filter="name=dind_node" --quiet)
+  local docker_ids=$(docker ps --filter="name=${CLUSTER_NAME}_node" --quiet)
   if [ -z "${docker_ids}" ]; then
     echo "ERROR: node(s) not running" 1>&2
     return 1
@@ -214,7 +215,7 @@ function dind::kube-up {
   # Wait for addons to deploy
   dind::await_ready "k8s-app=kube-dns" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
   dind::await_ready "k8s-app=kubernetes-dashboard" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
-  
+
   if [ "${ENABLE_FEDERATION}" == "true" ]; then
     dind::deploy_federation
   fi
@@ -299,9 +300,8 @@ EOF
 function dind::remove-federation {
   "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE} || true
   "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE}-system || true
-  "cluster/kubectl.sh" delete clusterrole "federation-controller-manager:federation-dind-dind" || true
-  "cluster/kubectl.sh" delete clusterrolebindings "federation-controller-manager:federation-dind-dind" || true
-  set -x
+  "cluster/kubectl.sh" delete clusterrole "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
+  "cluster/kubectl.sh" delete clusterrolebindings "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
   pkill -f "kubectl.*${REGISTRY_LOCAL_PORT}"
 }
 
