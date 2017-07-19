@@ -280,9 +280,12 @@ EOF
   "cluster/kubectl.sh" port-forward --namespace ${FEDERATION_NAMESPACE} $POD ${REGISTRY_LOCAL_PORT}:5000 &
 
   # push hyperkube image
+  tag=`< /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-8};echo`
   pushd "cluster/images/hyperkube/"
-  REGISTRY=127.0.0.1:${REGISTRY_LOCAL_PORT} make build VERSION=master ARCH=amd64
-  docker push 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:master
+  REGISTRY=127.0.0.1:${REGISTRY_LOCAL_PORT} make build VERSION=${tag} ARCH=amd64
+  docker push 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}
+  # clean local image
+  docker rmi 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}
   popd
 
   # run kubefed
@@ -293,7 +296,7 @@ EOF
     zones = ${DNS_ZONE}.
 EOF
 
-  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=127.0.0.1:5000/hyperkube-amd64:master --apiserver-enable-basic-auth=true --apiserver-enable-token-auth=true
+  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=127.0.0.1:5000/hyperkube-amd64:${tag} --apiserver-enable-basic-auth=true --apiserver-enable-token-auth=true
   kubefed join "${CLUSTER_NAME}" --host-cluster-context=${CLUSTER_NAME} --context=federation
 }
 
