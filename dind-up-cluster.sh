@@ -247,11 +247,9 @@ function dind::deploy-federation {
     echo "No hyperkube file in _output. Please build it first" 1>&2
     exit 1
   fi
-  # FIXME
-  if [ ! -f _output/dockerized/bin/linux/amd64/hyperkube ]; then
-    mkdir -p _output/dockerized/bin/linux/amd64
-    cp  _output/bin/hyperkube _output/dockerized/bin/linux/amd64
-  fi
+
+  mkdir -p _output/dockerized/bin/linux/amd64
+  cp -u _output/bin/hyperkube _output/dockerized/bin/linux/amd64/hyperkube || true
 
   "cluster/kubectl.sh" create namespace "${FEDERATION_NAMESPACE}"
 
