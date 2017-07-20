@@ -15,6 +15,10 @@ spec:
       labels:
         k8s-app: coredns-etcd
     spec:
+      volumes:
+        - name: certs
+          secret:
+            secretName: etcd-server
       containers:
       - command:
         - /usr/local/bin/etcd
@@ -28,8 +32,13 @@ spec:
         - http://coredns-etcd:2379
         - --initial-cluster-state
         - new
+        - -cert-file=/var/lib/etcd/certs/tls.crt
+        - -key-file=/var/lib/etcd/certs/tls.key
         image: quay.io/coreos/etcd:v3.1.0
         name: coredns-etcd
+        volumeMounts:
+          - name: certs
+            mountPath: /var/lib/etcd/certs
         ports:
         - containerPort: 2379
           name: client
