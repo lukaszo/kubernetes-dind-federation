@@ -9,7 +9,8 @@ data:
         etcd example.com. {
           stubzones
           path /skydns
-          endpoint http://coredns-etcd.federation:2379
+          endpoint https://coredns-etcd.federation:2379
+          tls /etc/etcd/client.pem /etc/etcd/client-key.pem /etc/etcd/ca.pem
         }
         errors stdout
         log stdout
@@ -49,6 +50,8 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/coredns
+        - name: etcd-client
+          mountPath: /etc/etcd
         ports:
         - containerPort: 53
           name: dns
@@ -66,6 +69,9 @@ spec:
           successThreshold: 1
           failureThreshold: 5
       volumes:
+        - name: etcd-client
+          secret:
+            secretName: etcd-client
         - name: config-volume
           configMap:
             name: coredns

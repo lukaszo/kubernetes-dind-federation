@@ -253,8 +253,22 @@ function dind::deploy-federation {
     cp  _output/bin/hyperkube _output/dockerized/bin/linux/amd64
   fi
 
+  dind::step "generate certificates for coredns etcd cluster"
+  certdir=$(mktemp -d "${DOCKER_IN_DOCKER_WORK_DIR}/etcd-certs.XXXX")
+  echo "directory with etcd certificates ${certdir}"
+  docker run --rm -i -u `id -u $USER` --entrypoint /bin/bash -v "${certdir}:/certs" -w /certs cfssl/cfssl:latest -ec "$(cat <<EOF
+    cd /certs
+    echo '{"CN":"CA","key":{"algo":"rsa","size":2048}}' | cfssl gencert -initca - | cfssljson -bare ca -
+    echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","server auth","client auth"]}}}' > ca-config.json
+    echo '{"CN":"server","hosts":[""],"key":{"algo":"rsa","size":2048}}' | cfssl gencert -config=ca-config.json -ca=ca.pem -ca-key=ca-key.pem -hostname=0.0.0.0,127.0.0.1,coredns-etcd,coredns-etcd.${FEDERATION_NAMESPACE} - | cfssljson -bare "server"
+    echo '{"CN":"client","hosts":[""],"key":{"algo":"rsa","size":2048}}' | cfssl gencert -config=ca-config.json -ca=ca.pem -ca-key=ca-key.pem - | cfssljson -bare "client"
+EOF
+  )"
+
   "cluster/kubectl.sh" create namespace "${FEDERATION_NAMESPACE}"
 
+  "cluster/kubectl.sh" create secret generic etcd-server -n "${FEDERATION_NAMESPACE}" --from-file="${certdir}"/server.pem --from-file="${certdir}"/server-key.pem --from-file="${certdir}"/ca.pem
+  "cluster/kubectl.sh" create secret generic etcd-client -n "${FEDERATION_NAMESPACE}" --from-file="${certdir}"/client.pem --from-file="${certdir}"/client-key.pem --from-file="${certdir}"/ca.pem
   # install etcd
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/etcd.yml"
   dind::await_ready "k8s-app=coredns-etcd" "600" ${FEDERATION_NAMESPACE}
@@ -289,11 +303,16 @@ EOF
   tmpfile=$(mktemp /tmp/coredns-provider.conf.XXXXXX)
   cat >${tmpfile} << EOF
     [Global]
-    etcd-endpoints = http://coredns-etcd.${FEDERATION_NAMESPACE}:2379
-    zones = ${DNS_ZONE}.
+    etcd-endpoints = https://coredns-etcd.${FEDERATION_NAMESPACE}:2379
+    zones= ${DNS_ZONE}.
+    etcd-cert-file = /etc/etcd/client.pem
+    etcd-key-file = /etc/etcd/client-key.pem
+    etcd-ca-file = /etc/etcd/ca.pem
 EOF
 
-  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=127.0.0.1:5000/hyperkube-amd64:master --apiserver-enable-basic-auth=true --apiserver-enable-token-auth=true
+  "cluster/kubectl.sh" create namespace "${FEDERATION_NAMESPACE}-system"
+  "cluster/kubectl.sh" create secret generic etcd-client -n "${FEDERATION_NAMESPACE}-system" --from-file="${certdir}"/client.pem --from-file="${certdir}"/client-key.pem --from-file="${certdir}"/ca.pem
+  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=127.0.0.1:5000/hyperkube-amd64:master --apiserver-enable-basic-auth=true --apiserver-enable-token-auth=true --controller-secrets etcd-client=/etc/etcd/
   kubefed join "${CLUSTER_NAME}" --host-cluster-context=${CLUSTER_NAME} --context=federation
 }
 
