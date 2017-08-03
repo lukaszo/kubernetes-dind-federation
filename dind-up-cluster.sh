@@ -167,7 +167,7 @@ EOF
   cat "${auth_dir}/apiserver.pem" "${auth_dir}/ca.pem" > "${auth_dir}/apiserver-bundle.pem"
 
   docker create -v /var/run/kubernetes/auth --name dind_auth alpine /bin/true
-  docker cp ${auth_dir} dind_auth:/var/run/kubernetes/auth
+  docker cp ${auth_dir} dind_auth:/var/run/kubernetes/
 }
 
 # Create default docker network for the cluster
