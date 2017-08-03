@@ -152,7 +152,7 @@ function dind::init_auth {
   dind::step "Creating credentials:" "admin:${BASIC_PASSWORD}, kubelet token"
 
   dind::step "Create TLS certs & keys:"
-  docker run --rm -i  --entrypoint /bin/bash -v "${auth_dir}:/certs" -w /certs cfssl/cfssl:latest -ec "$(cat <<EOF
+  docker run --name tls-certs -i --entrypoint /bin/bash -w /certs cfssl/cfssl:latest -ec "$(cat <<EOF 
     cd /certs
     echo '{"CN":"CA","key":{"algo":"rsa","size":2048}}' | cfssl gencert -initca - | cfssljson -bare ca -
     echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","server auth","client auth"]}}}' > ca-config.json
@@ -161,7 +161,13 @@ function dind::init_auth {
       cfssljson -bare apiserver
 EOF
   )"
+
+  docker cp tls-certs:/certs ${auth_dir}
+  mv ${auth_dir}/certs/* ${auth_dir}
   cat "${auth_dir}/apiserver.pem" "${auth_dir}/ca.pem" > "${auth_dir}/apiserver-bundle.pem"
+
+  docker create -v /var/run/kubernetes/auth --name dind_auth alpine /bin/true
+  docker cp ${auth_dir} dind_auth:/var/run/kubernetes/
 }
 
 # Create default docker network for the cluster
