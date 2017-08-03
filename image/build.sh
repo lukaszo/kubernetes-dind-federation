@@ -56,8 +56,8 @@ fi
 overlay_dir=${DOCKER_IN_DOCKER_OVERLAY_DIR:-${script_dir}/overlay}
 mkdir -p "${overlay_dir}"
 ! which selinuxenabled &>/dev/null || ! selinuxenabled 2>&1 || sudo chcon -Rt svirt_sandbox_file_t -l s0 "${overlay_dir}"
-docker run --rm -v "${overlay_dir}:/target" jpetazzo/nsenter
-docker run --rm -v "${overlay_dir}:/target" ${SOCAT_IMG}
+docker run --rm jpetazzo/nsenter cat /nsenter > ${overlay_dir}/nsenter && chmod +x ${overlay_dir}/nsenter
+docker run --rm ${SOCAT_IMG} cat /src/socat*/socat > ${overlay_dir}/socat && chmod +x ${overlay_dir}/socat
 
 # create temp workspace to place compiled binaries with image-specific scripts
 # create temp workspace dir in KUBE_ROOT to avoid permission issues of TMPDIR on mac os x
