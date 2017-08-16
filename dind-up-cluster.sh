@@ -183,6 +183,8 @@ function dind::delete_default_network {
 
 # Instantiate a kubernetes cluster.
 function dind::kube-up {
+  dind::ensure-hyperkube
+
   # Pull before `docker-compose up` to avoid timeouts caused by slow pulls during deployment.
   dind::step "Pulling docker images"
   dind::docker_compose_lazy_pull
@@ -250,13 +252,7 @@ function dind::deploy-ui {
 }
 
 function dind::deploy-federation {
-  if [ ! -f _output/dockerized/bin/linux/amd64/hyperkube ] && [ ! -f _output/bin/hyperkube ]; then
-    echo "No hyperkube file in _output. Please build it first" 1>&2
-    exit 1
-  fi
-
-  mkdir -p _output/dockerized/bin/linux/amd64
-  cp -u _output/bin/hyperkube _output/dockerized/bin/linux/amd64/hyperkube || true
+  dind::ensure-hyperkube
 
   "cluster/kubectl.sh" create namespace "${FEDERATION_NAMESPACE}"
 
@@ -396,6 +392,16 @@ function dind::step {
   else
     echo ${OPTS} "* ${GREEN} $*" 1>&2
   fi
+}
+
+function dind::ensure-hyperkube {
+  if [ ! -f _output/dockerized/bin/linux/amd64/hyperkube ] && [ ! -f _output/bin/hyperkube ]; then
+    echo "No hyperkube file in _output. Please build it first" 1>&2
+    exit 1
+  fi
+
+  mkdir -p _output/dockerized/bin/linux/amd64
+  cp -u _output/bin/hyperkube _output/dockerized/bin/linux/amd64/hyperkube || true
 }
 
 if [ $(basename "$0") = dind-up-cluster.sh ]; then
