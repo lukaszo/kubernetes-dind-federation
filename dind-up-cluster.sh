@@ -250,7 +250,7 @@ function dind::deploy-ui {
 }
 
 function dind::deploy-federation {
-  if [ ! -f _output/dockerized/bin/linux/amd64/hyperkube ] && [ ! -f _output/bin/hyperkube ]; then
+  if [ -z "${FEDERATION_IMAGE}" ] && [ ! -f _output/dockerized/bin/linux/amd64/hyperkube ] && [ ! -f _output/bin/hyperkube ]; then
     echo "No hyperkube file in _output. Please build it first" 1>&2
     exit 1
   fi
@@ -268,30 +268,36 @@ function dind::deploy-federation {
   "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/coredns.yml"
   dind::await_ready "k8s-app=coredns" "600" ${FEDERATION_NAMESPACE}
 
-  # install private docker registry
-  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
-  dind::await_ready "k8s-app=kube-registry" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
-  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-svc.yml"
-  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f <(eval "cat <<EOF
+  # if ${FEDERATION_IMAGE} is set then it will be used, otherwise custom hyperkube image will be build
+  if [ -z "${FEDERATION_IMAGE}" ]; then
+    # install private docker registry
+    "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
+    dind::await_ready "k8s-app=kube-registry" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
+    "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-svc.yml"
+    "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f <(eval "cat <<EOF
 $(<"${DIND_ROOT}/k8s/registry-ds.yml")
 EOF
-" 2>/dev/null)
-  dind::await_ready "k8s-app=registry-proxy" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
+"   2>/dev/null)
+    dind::await_ready "k8s-app=registry-proxy" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
   
-  # local proxy to push images
-  POD=$("cluster/kubectl.sh" get pods --namespace ${FEDERATION_NAMESPACE} -l k8s-app=kube-registry \
+    # local proxy to push images
+    POD=$("cluster/kubectl.sh" get pods --namespace ${FEDERATION_NAMESPACE} -l k8s-app=kube-registry \
 	  -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
 	  | grep Running | head -1 | cut -f1 -d' ')
-  "cluster/kubectl.sh" port-forward --namespace ${FEDERATION_NAMESPACE} $POD ${REGISTRY_LOCAL_PORT}:5000 &
+    "cluster/kubectl.sh" port-forward --namespace ${FEDERATION_NAMESPACE} $POD ${REGISTRY_LOCAL_PORT}:5000 &
 
-  # push hyperkube image
-  tag=`< /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-8};echo`
-  pushd "cluster/images/hyperkube/"
-  REGISTRY=127.0.0.1:${REGISTRY_LOCAL_PORT} make build VERSION=${tag} ARCH=amd64
-  docker push 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}
-  # clean local image
-  docker rmi 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}
-  popd
+    # push hyperkube image
+    tag=`< /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-8};echo`
+    pushd "cluster/images/hyperkube/"
+    REGISTRY=127.0.0.1:${REGISTRY_LOCAL_PORT} make build VERSION=${tag} ARCH=amd64
+    docker push 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}
+    # clean local image
+    docker rmi 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}
+    popd
+    local hyperkube_image="127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}"
+  else
+    local hyperkube_image="${FEDERATION_IMAGE}"
+  fi
 
   # run kubefed
   tmpfile=$(mktemp /tmp/coredns-provider.conf.XXXXXX)
@@ -301,7 +307,7 @@ EOF
     zones = ${DNS_ZONE}.
 EOF
 
-  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=127.0.0.1:5000/hyperkube-amd64:${tag} --apiserver-enable-basic-auth=true --apiserver-enable-token-auth=true
+  kubefed init federation --host-cluster-context=${CLUSTER_NAME} --kubeconfig=${KUBECONFIG} --federation-system-namespace=${FEDERATION_NAMESPACE}-system --api-server-service-type=NodePort --etcd-persistent-storage=false --dns-provider=coredns --dns-provider-config=${tmpfile} --dns-zone-name=${DNS_ZONE} --image=${hyperkube_image} --apiserver-enable-basic-auth=true --apiserver-enable-token-auth=true
   kubefed join "${CLUSTER_NAME}" --host-cluster-context=${CLUSTER_NAME} --context=federation
 }
 
