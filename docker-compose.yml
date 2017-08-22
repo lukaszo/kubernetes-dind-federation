@@ -66,7 +66,7 @@ services:
       --etcd-servers=http://etcd:4001
       --insecure-port=8888
       --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,PersistentVolumeLabel
-      --authorization-mode=AlwaysAllow
+      --authorization-mode=RBAC
       --token-auth-file=/var/run/kubernetes/auth/token-users
       --basic-auth-file=/var/run/kubernetes/auth/basic-users
       --service-account-key-file=/var/run/kubernetes/auth/service-accounts-key.pem
