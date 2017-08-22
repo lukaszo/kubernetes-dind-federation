@@ -81,7 +81,7 @@ function dind::create-kubeconfig {
   local -r auth_dir="${DOCKER_IN_DOCKER_WORK_DIR}/auth"
   local kubectl="cluster/kubectl.sh"
 
-  local token="$(cut -d, -f1 ${auth_dir}/token-users)"
+  local token="$(tail -n1 ${auth_dir}/token-users | cut -d, -f1 -)"
   "${kubectl}" config set-cluster "${CLUSTER_NAME}" --server="${KUBE_SERVER}" --certificate-authority="${auth_dir}/ca.pem"
   "${kubectl}" config set-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}" --user="${CLUSTER_NAME}-cluster-admin"
   "${kubectl}" config set-credentials ${CLUSTER_NAME}-cluster-admin --token="${token}"
@@ -106,10 +106,10 @@ function dind::get-apiserver-port {
 
 # Must ensure that the following ENV vars are set
 function dind::detect-master {
-  #KUBE_MASTER_IP="${APISERVER_ADDRESS}:6443"
-  KUBE_MASTER_IP="${APISERVER_ADDRESS}:$(dind::get-apiserver-port 8888)"
-  #KUBE_SERVER="https://${KUBE_MASTER_IP}"
-  KUBE_SERVER="http://${KUBE_MASTER_IP}"
+  KUBE_MASTER_IP="${APISERVER_ADDRESS}"
+  #KUBE_MASTER_IP="${APISERVER_ADDRESS}:$(dind::get-apiserver-port 8888)"
+  KUBE_SERVER="https://${KUBE_MASTER_IP}:$(dind::get-apiserver-port 6443)"
+  #KUBE_SERVER="http://${KUBE_MASTER_IP}"
 
   echo "KUBE_MASTER_IP: $KUBE_MASTER_IP" 1>&2
 }
@@ -154,8 +154,10 @@ function dind::init_auth {
 
   local -r BASIC_PASSWORD="$(openssl rand -hex 16)"
   local -r KUBELET_TOKEN="$(openssl rand -hex 32)"
+  local -r ADMIN_TOKEN="$(openssl rand -hex 32)"
   echo "${BASIC_PASSWORD},admin,admin" > ${auth_dir}/basic-users
   echo "${KUBELET_TOKEN},kubelet,kubelet" > ${auth_dir}/token-users
+  echo "${ADMIN_TOKEN},admin,admin,\"system:masters\"" >> ${auth_dir}/token-users
   dind::step "Creating credentials:" "admin:${BASIC_PASSWORD}, kubelet token"
 
   dind::step "Create TLS certs & keys:"
