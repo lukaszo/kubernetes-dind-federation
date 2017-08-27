@@ -296,7 +296,7 @@ EOF
     # clean local image
     docker rmi 127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}
     popd
-    local hyperkube_image="127.0.0.1:${REGISTRY_LOCAL_PORT}/hyperkube-amd64:${tag}"
+    local hyperkube_image="127.0.0.1:5000/hyperkube-amd64:${tag}"
   else
     local hyperkube_image="${FEDERATION_IMAGE}"
   fi
