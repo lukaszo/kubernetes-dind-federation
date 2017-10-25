@@ -35,7 +35,7 @@ services:
       --v=5 2>&1 | sed 's/^/kubelet: /' 1>&2 &
       hyperkube proxy
       --hostname-override=$${HOSTNAME_OVERRIDE}
-      --master=http://apiserver:8888
+      --master=http://master:8888
       --cluster-cidr=\$$(ip addr show docker0 | grep -w inet | awk '{ print \$$2; }')
       --masquerade-all
       --proxy-mode=userspace
@@ -52,17 +52,17 @@ services:
     - ${DOCKER_IN_DOCKER_STORAGE_DIR}:/var/lib/docker
     - ${DOCKER_IN_DOCKER_AUTH_DIR}:/root/.kube:ro
     links:
-    - apiserver
-  apiserver:
-    hostname: apiserver
+    - master
+  master:
+    hostname: master
     image: k8s.io/kubernetes-dind
     entrypoint:
     - /bin/bash
-    - "-cxeu"
+    - -cxeu
     - >
       echo "Hostname: $$(hostname -f) ($$(hostname -f | xargs resolveip.sh))" &&
       hyperkube apiserver
-      --insecure-bind-address=$$(resolveip.sh apiserver)
+      --insecure-bind-address=$$(resolveip.sh master)
       --external-hostname=apiserver
       --etcd-servers=http://etcd:4001
       --insecure-port=8888
@@ -77,39 +77,20 @@ services:
       --tls-cert-file=/var/run/kubernetes/auth/apiserver-bundle.pem
       --tls-private-key-file=/var/run/kubernetes/auth/apiserver-key.pem
       --runtime-config=api/all
-      --v=4
+      --v=4 2>&1 | sed 's/^/apiserver: /' 1>&2 &
+      hyperkube controller-manager
+      --address=$$(resolveip.sh master)
+      --master=http://master:8888
+      --service-account-private-key-file=/var/run/kubernetes/auth/service-accounts-key.pem
+      --root-ca-file=/var/run/kubernetes/auth/ca.pem
+      --v=4 2>&1 | sed 's/^/controller-manager: /' 1>&2 &
+      hyperkube scheduler
+      --address=$$(resolveip.sh master)
+      --master=http://master:8888
+      --v=4 2>&1 | sed 's/^/scheduler: /' 1>&2 &
+      wait $$(jobs -p)
     ports: [ "8888", "6443" ]
     volumes:
     - ${DOCKER_IN_DOCKER_WORK_DIR}/auth:/var/run/kubernetes/auth:ro
     links:
     - etcd
-  controller:
-    hostname: controller
-    image: k8s.io/kubernetes-dind
-    entrypoint:
-    - /bin/bash
-    - "-ceu"
-    - >
-      hyperkube controller-manager
-      --address=$$(resolveip.sh controller)
-      --master=http://apiserver:8888
-      --service-account-private-key-file=/var/run/kubernetes/auth/service-accounts-key.pem
-      --root-ca-file=/var/run/kubernetes/auth/ca.pem
-      --v=4
-    volumes:
-    - ${DOCKER_IN_DOCKER_WORK_DIR}/auth:/var/run/kubernetes/auth:ro
-    links:
-    - apiserver
-  scheduler:
-    hostname: scheduler
-    image: k8s.io/kubernetes-dind
-    entrypoint:
-    - /bin/bash
-    - "-ceu"
-    - >
-      hyperkube scheduler
-      --address=$$(resolveip.sh scheduler)
-      --master=http://apiserver:8888
-      --v=4
-    links:
-    - apiserver

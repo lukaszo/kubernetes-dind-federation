@@ -99,7 +99,7 @@ function dind::create-kubeconfig {
 # get apiserver published port
 function dind::get-apiserver-port {
   local base_port=$1
-  local port_mapping=$(docker port ${CLUSTER_NAME}_apiserver_1 ${base_port})
+  local port_mapping=$(docker port ${CLUSTER_NAME}_master_1 ${base_port})
   local port=${port_mapping#0.0.0.0:}
   echo ${port}
 }
