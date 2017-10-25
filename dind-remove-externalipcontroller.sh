@@ -51,7 +51,6 @@ function dind::docker_compose {
     done
 
     export DOCKER_IN_DOCKER_STORAGE_DIR=${DOCKER_IN_DOCKER_STORAGE_DIR:-${DOCKER_IN_DOCKER_WORK_DIR}/storage}
-    export DOCKER_IN_DOCKER_AUTH_DIR=${DOCKER_IN_DOCKER_AUTH_DIR:-${DOCKER_IN_DOCKER_WORK_DIR}/auth}
 
     docker-compose -p ${CLUSTER_NAME} -f "${DIND_ROOT}/docker-compose.yml" ${params}
   )
@@ -87,19 +86,13 @@ function dind::create-kubeconfig {
   "${kubectl}" config set-credentials ${CLUSTER_NAME}-cluster-admin --token="${token}"
   "${kubectl}" config use-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}"
 
-  # save the same data for kubelet
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config set-cluster "${CLUSTER_NAME}" --server="${KUBE_SERVER}" --certificate-authority="${auth_dir}/ca.pem"
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config set-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}" --user="${CLUSTER_NAME}-cluster-admin"
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config set-credentials ${CLUSTER_NAME}-cluster-admin --token="${token}"
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config use-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}"
-
    echo "Wrote config for ${CLUSTER_NAME} context" 1>&2
 }
 
 # get apiserver published port
 function dind::get-apiserver-port {
   local base_port=$1
-  local port_mapping=$(docker port ${CLUSTER_NAME}_apiserver_1 ${base_port})
+  local port_mapping=$(docker port ${CLUSTER_NAME}_master_1 ${base_port})
   local port=${port_mapping#0.0.0.0:}
   echo ${port}
 }
