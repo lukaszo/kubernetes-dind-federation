@@ -22,10 +22,11 @@ services:
       N=$${HOSTNAME_OVERRIDE##*.} &&
       DOCKER_NETWORK_OFFSET=0.0.$${N}.0
       exec wrapdocker bash -c "
-      sleep 5 && hyperkube kubelet
+      while [ ! -f /root/.kube/config ]; do   echo -n "." ; sleep 2; done && hyperkube kubelet
       --hostname-override=$${HOSTNAME_OVERRIDE}
       --node-labels="rack=$${N},gen=201$${N},failure-domain.beta.kubernetes.io/zone=zone_${CLUSTER_NAME},failure-domain.beta.kubernetes.io/region=region_${CLUSTER_NAME}"
       --kubeconfig="/root/.kube/config"
+      --require-kubeconfig=true
       --allow-privileged
       --cluster-dns=${DNS_SERVER_IP}
       --cluster-domain=${DNS_DOMAIN}
