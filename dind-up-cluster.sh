@@ -27,9 +27,17 @@ fi
 DIND_ROOT="$(cd $(dirname "$(readlinkf "${BASH_SOURCE}")"); pwd)"
 
 if [ ! -f cluster/kubectl.sh ]; then
-  echo "$0 must be called from the Kubernetes repository root directory" 1>&2
-  exit 1
+  if ! command -v kubectl &>/dev/null; then
+    echo "kubectl command is not in PATH."
+    echo "Install it or $0 must be called from the Kubernetes repository root directory" 1>&2
+    exit 1
+  else
+    KUBECTL=kubectl
+  fi
 fi
+
+KUBECTL="${KUBECTL:-cluster/kubectl.sh}"
+
 
 # Execute a docker-compose command with the default environment and compose file.
 function dind::docker_compose {
@@ -79,19 +87,18 @@ function dind::docker_compose_lazy_pull {
 # Generate kubeconfig data for the created cluster.
 function dind::create-kubeconfig {
   local -r auth_dir="${DOCKER_IN_DOCKER_WORK_DIR}/auth"
-  local kubectl="cluster/kubectl.sh"
 
   local token="$(tail -n1 ${auth_dir}/token-users | cut -d, -f1 -)"
-  "${kubectl}" config set-cluster "${CLUSTER_NAME}" --server="${KUBE_SERVER}" --certificate-authority="${auth_dir}/ca.pem"
-  "${kubectl}" config set-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}" --user="${CLUSTER_NAME}-cluster-admin"
-  "${kubectl}" config set-credentials ${CLUSTER_NAME}-cluster-admin --token="${token}"
-  "${kubectl}" config use-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}"
+  "${KUBECTL}" config set-cluster "${CLUSTER_NAME}" --server="${KUBE_SERVER}" --certificate-authority="${auth_dir}/ca.pem"
+  "${KUBECTL}" config set-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}" --user="${CLUSTER_NAME}-cluster-admin"
+  "${KUBECTL}" config set-credentials ${CLUSTER_NAME}-cluster-admin --token="${token}"
+  "${KUBECTL}" config use-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}"
 
   # save the same data for kubelet
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config set-cluster "${CLUSTER_NAME}" --server="${KUBE_SERVER}" --certificate-authority="${auth_dir}/ca.pem"
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config set-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}" --user="${CLUSTER_NAME}-cluster-admin"
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config set-credentials ${CLUSTER_NAME}-cluster-admin --token="${token}"
-  "${kubectl}" --kubeconfig="${auth_dir}/config" config use-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}"
+  "${KUBECTL}" --kubeconfig="${auth_dir}/config" config set-cluster "${CLUSTER_NAME}" --server="${KUBE_SERVER}" --certificate-authority="${auth_dir}/ca.pem"
+  "${KUBECTL}" --kubeconfig="${auth_dir}/config" config set-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}" --user="${CLUSTER_NAME}-cluster-admin"
+  "${KUBECTL}" --kubeconfig="${auth_dir}/config" config set-credentials ${CLUSTER_NAME}-cluster-admin --token="${token}"
+  "${KUBECTL}" --kubeconfig="${auth_dir}/config" config use-context "${CLUSTER_NAME}" --cluster="${CLUSTER_NAME}"
 
    echo "Wrote config for ${CLUSTER_NAME} context" 1>&2
 }
@@ -230,13 +237,13 @@ function dind::kube-up {
 
 function dind::deploy-dns {
   dind::step "Deploying kube-dns"
-  "cluster/kubectl.sh" --namespace kube-system create -f "${DIND_ROOT}/k8s/kubedns-cm.yml"
-  "cluster/kubectl.sh" --namespace kube-system create -f "cluster/addons/dns/kubedns-sa.yaml"
-  "cluster/kubectl.sh" create -f <(
+  ${KUBECTL} --namespace kube-system create -f "${DIND_ROOT}/k8s/kubedns-cm.yml"
+  ${KUBECTL} --namespace kube-system create -f "${DIND_ROOT}/k8s/kubedns-sa.yaml"
+  ${KUBECTL}  create -f <(
     for f in kubedns-controller.yaml kubedns-svc.yaml; do
       echo "---"
       eval "cat <<EOF
-$(<"cluster/addons/dns/${f}.sed")
+$(<"${DIND_ROOT}/k8s/${f}.sed")
 EOF
 " 2>/dev/null
     done
@@ -245,8 +252,8 @@ EOF
 
 function dind::deploy-ui {
   dind::step "Deploying dashboard"
-  "cluster/kubectl.sh" create -f "cluster/addons/dashboard/dashboard-controller.yaml"
-  "cluster/kubectl.sh" create -f "cluster/addons/dashboard/dashboard-service.yaml"
+  ${KUBECTL} create -f "cluster/addons/dashboard/dashboard-controller.yaml"
+  ${KUBECTL} create -f "cluster/addons/dashboard/dashboard-service.yaml"
 }
 
 function dind::deploy-federation {
@@ -258,33 +265,33 @@ function dind::deploy-federation {
   mkdir -p _output/dockerized/bin/linux/amd64
   cp -u _output/bin/hyperkube _output/dockerized/bin/linux/amd64/hyperkube || true
 
-  "cluster/kubectl.sh" create namespace "${FEDERATION_NAMESPACE}"
+  ${KUBECTL} create namespace "${FEDERATION_NAMESPACE}"
 
   # install etcd
-  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/etcd.yml"
+  ${KUBECTL} create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/etcd.yml"
   dind::await_ready "k8s-app=coredns-etcd" "600" ${FEDERATION_NAMESPACE}
 
   # install coredns
-  "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/coredns.yml"
+  ${KUBECTL} create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/coredns.yml"
   dind::await_ready "k8s-app=coredns" "600" ${FEDERATION_NAMESPACE}
 
   # if ${FEDERATION_IMAGE} is set then it will be used, otherwise custom hyperkube image will be build
   if [ -z "${FEDERATION_IMAGE}" ]; then
     # install private docker registry
-    "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
+    ${KUBECTL} create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry.yml"
     dind::await_ready "k8s-app=kube-registry" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
-    "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-svc.yml"
-    "cluster/kubectl.sh" create -n ${FEDERATION_NAMESPACE} -f <(eval "cat <<EOF
+    ${KUBECTL} create -n ${FEDERATION_NAMESPACE} -f "${DIND_ROOT}/k8s/registry-svc.yml"
+    ${KUBECTL} create -n ${FEDERATION_NAMESPACE} -f <(eval "cat <<EOF
 $(<"${DIND_ROOT}/k8s/registry-ds.yml")
 EOF
 "   2>/dev/null)
     dind::await_ready "k8s-app=registry-proxy" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}" "${FEDERATION_NAMESPACE}"
   
     # local proxy to push images
-    POD=$("cluster/kubectl.sh" get pods --namespace ${FEDERATION_NAMESPACE} -l k8s-app=kube-registry \
+    POD=$(${KUBECTL} get pods --namespace ${FEDERATION_NAMESPACE} -l k8s-app=kube-registry \
 	  -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
 	  | grep Running | head -1 | cut -f1 -d' ')
-    "cluster/kubectl.sh" port-forward --namespace ${FEDERATION_NAMESPACE} $POD ${REGISTRY_LOCAL_PORT}:5000 &
+    ${KUBECTL} port-forward --namespace ${FEDERATION_NAMESPACE} $POD ${REGISTRY_LOCAL_PORT}:5000 &
 
     # push hyperkube image
     tag=`< /dev/urandom tr -dc A-Za-z0-9 | head -c${1:-8};echo`
@@ -312,17 +319,17 @@ EOF
 }
 
 function dind::remove-federation {
-  "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE} || true
-  "cluster/kubectl.sh" delete namespace ${FEDERATION_NAMESPACE}-system || true
-  "cluster/kubectl.sh" delete clusterrole "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
-  "cluster/kubectl.sh" delete clusterrolebindings "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
+  ${KUBECTL} delete namespace ${FEDERATION_NAMESPACE} || true
+  ${KUBECTL} delete namespace ${FEDERATION_NAMESPACE}-system || true
+  ${KUBECTL} delete clusterrole "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
+  ${KUBECTL} delete clusterrolebindings "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
   pkill -f "kubectl.*${REGISTRY_LOCAL_PORT}"
 }
 
 function dind::deploy-externalipcontroller {
-  "cluster/kubectl.sh" apply -f "${DIND_ROOT}/k8s/external-auth.yml" --context=${CLUSTER_NAME}
-  "cluster/kubectl.sh" apply -f "${DIND_ROOT}/k8s/external-controller.yml" --context=${CLUSTER_NAME}
-  "cluster/kubectl.sh" apply -f "${DIND_ROOT}/k8s/external-scheduler.yml" --context=${CLUSTER_NAME}
+  ${KUBECTL} apply -f "${DIND_ROOT}/k8s/external-auth.yml" --context=${CLUSTER_NAME}
+  ${KUBECTL} apply -f "${DIND_ROOT}/k8s/external-controller.yml" --context=${CLUSTER_NAME}
+  ${KUBECTL} apply -f "${DIND_ROOT}/k8s/external-scheduler.yml" --context=${CLUSTER_NAME}
   dind::await_ready "app=externalipcontroller" "600" default
   dind::await_ready "app=claimscheduler" "600" default
   dind::await_crd "ipnodes.ipcontroller.ext" 60
@@ -341,12 +348,12 @@ EOF
 }
 
 function dind::remove-externalipcontroller {
-  "cluster/kubectl.sh" delete ds claimcontroller --context=${CLUSTER_NAME} || true
-  "cluster/kubectl.sh" delete deploy claimscheduler --context=${CLUSTER_NAME} || true
-  "cluster/kubectl.sh" delete clusterrolebindings system:serviceaccounts --context=${CLUSTER_NAME}|| true
-  "cluster/kubectl.sh" delete customresourcedefinition ipclaimpools.ipcontroller.ext --context=${CLUSTER_NAME}|| true
-  "cluster/kubectl.sh" delete customresourcedefinition ipclaims.ipcontroller.ext --context=${CLUSTER_NAME}|| true
-  "cluster/kubectl.sh" delete customresourcedefinition ipnodes.ipcontroller.ext --context=${CLUSTER_NAME}|| true
+  ${KUBECTL} delete ds claimcontroller --context=${CLUSTER_NAME} || true
+  ${KUBECTL} delete deploy claimscheduler --context=${CLUSTER_NAME} || true
+  ${KUBECTL} delete clusterrolebindings system:serviceaccounts --context=${CLUSTER_NAME}|| true
+  ${KUBECTL} delete customresourcedefinition ipclaimpools.ipcontroller.ext --context=${CLUSTER_NAME}|| true
+  ${KUBECTL} delete customresourcedefinition ipclaims.ipcontroller.ext --context=${CLUSTER_NAME}|| true
+  ${KUBECTL} delete customresourcedefinition ipnodes.ipcontroller.ext --context=${CLUSTER_NAME}|| true
   br="br-`docker network ls|grep ${CLUSTER_NAME}_default|awk '{print $1}'`"
   sudo ip addr del "${EXTERNALIPCONTROLLER_IP}" dev ${br} || true
 }
@@ -400,7 +407,7 @@ function dind::await_crd {
   echo -n "${crd}: "
   local n=0
   until [ ${n} -ge ${max_attempts} ]; do
-    if [ "$(cluster/kubectl.sh get customresourcedefinition 2>/dev/null|grep ${crd})" ]; then
+    if [ "$(${KUBECTL} get customresourcedefinition 2>/dev/null|grep ${crd})" ]; then
       ready="True"
       break
     fi
@@ -416,8 +423,7 @@ function dind::await_crd {
 function dind::is_pod_ready {
   local label="$1"
   local namespace="$2"
-  local kubectl="cluster/kubectl.sh"
-  local phase=$("${kubectl}" get pods --namespace=${namespace} -l ${label} -o jsonpath --template="{.items[0]['status']['conditions'][?(@.type==\"Ready\")].status}" 2>/dev/null)
+  local phase=$("${KUBECTL}" get pods --namespace=${namespace} -l ${label} -o jsonpath --template="{.items[0]['status']['conditions'][?(@.type==\"Ready\")].status}" 2>/dev/null)
   phase="${phase:-Unknown}"
   echo "${phase}"
 }
@@ -441,7 +447,7 @@ if [ $(basename "$0") = dind-up-cluster.sh ]; then
     source "${DIND_ROOT}/config.sh"
     dind::kube-up
     echo
-    "cluster/kubectl.sh" cluster-info
+    ${KUBECTL} cluster-info
     if [ "${1:-}" = "-w" ]; then
       trap "echo; dind::kube-down" INT
       echo
