@@ -21,7 +21,7 @@ DOCKER_DAEMON_ARGS="${DOCKER_DAEMON_ARGS:---log-level=error}"
 DOCKER_IN_DOCKER_SKIP_BUILD="${DOCKER_IN_DOCKER_SKIP_BUILD:-false}"
 
 # Optional: Deploy cluster web interface.
-ENABLE_CLUSTER_UI="${ENABLE_CLUSTER_UI:-true}"
+ENABLE_CLUSTER_UI="${ENABLE_CLUSTER_UI:-false}"
 
 # Optional: Deploy cluster DNS.
 ENABLE_CLUSTER_DNS="${ENABLE_CLUSTER_DNS:-true}"

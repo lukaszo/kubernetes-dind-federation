@@ -216,14 +216,12 @@ function dind::kube-up {
 
   if [ "${ENABLE_CLUSTER_DNS}" == "true" ]; then
     dind::deploy-dns
+    dind::await_ready "k8s-app=kube-dns" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
   fi
   if [ "${ENABLE_CLUSTER_UI}" == "true" ]; then
     dind::deploy-ui
+    dind::await_ready "k8s-app=kubernetes-dashboard" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
   fi
-
-  # Wait for addons to deploy
-  dind::await_ready "k8s-app=kube-dns" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
-  dind::await_ready "k8s-app=kubernetes-dashboard" "${DOCKER_IN_DOCKER_ADDON_TIMEOUT}"
 
   if [ "${ENABLE_FEDERATION}" == "true" ]; then
     dind::deploy_federation
