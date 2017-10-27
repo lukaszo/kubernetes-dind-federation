@@ -187,7 +187,7 @@ function dind::create_default_network {
 
 # Delete default docker network for the cluster
 function dind::delete_default_network {
-  docker network rm ${CLUSTER_NAME}_default
+  docker network rm ${CLUSTER_NAME}_default || true
 }
 
 # Instantiate a kubernetes cluster.
