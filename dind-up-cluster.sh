@@ -319,11 +319,11 @@ EOF
 }
 
 function dind::remove-federation {
-  ${KUBECTL} delete namespace ${FEDERATION_NAMESPACE} || true
-  ${KUBECTL} delete namespace ${FEDERATION_NAMESPACE}-system || true
-  ${KUBECTL} delete clusterrole "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
-  ${KUBECTL} delete clusterrolebindings "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" || true
-  pkill -f "kubectl.*${REGISTRY_LOCAL_PORT}"
+  ${KUBECTL} delete namespace ${FEDERATION_NAMESPACE} --context=${CLUSTER_NAME} || true
+  ${KUBECTL} delete namespace ${FEDERATION_NAMESPACE}-system --context=${CLUSTER_NAME} || true
+  ${KUBECTL} delete clusterrole "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" --context=${CLUSTER_NAME} || true
+  ${KUBECTL} delete clusterrolebindings "federation-controller-manager:federation-${CLUSTER_NAME}-${CLUSTER_NAME}" --context=${CLUSTER_NAME} || true
+  pkill -f "kubectl.*${REGISTRY_LOCAL_PORT}" || true
 }
 
 function dind::deploy-externalipcontroller {
