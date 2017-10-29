@@ -123,6 +123,9 @@ function dind::detect-master {
 
 # Get minion IP addresses and store in KUBE_NODE_IP_ADDRESSES[]
 function dind::detect-nodes {
+  if [ "${NUM_NODES}" == "0" ]; then
+    return 0
+  fi
   local docker_ids=$(docker ps --filter="name=${CLUSTER_NAME}_node" --quiet)
   if [ -z "${docker_ids}" ]; then
     echo "ERROR: node(s) not running" 1>&2
