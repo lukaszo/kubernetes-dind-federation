@@ -79,6 +79,7 @@ services:
       --tls-private-key-file=/var/run/kubernetes/auth/apiserver-key.pem
       --runtime-config=api/all
       --v=4 2>&1 | sed 's/^/apiserver: /' 1>&2 &
+      until [ "$$(curl --silent --fail http://master:8888/healthz)" == "ok" ]; do printf '.'; sleep 5; done &&
       hyperkube controller-manager
       --address=$$(resolveip.sh master)
       --master=http://master:8888
